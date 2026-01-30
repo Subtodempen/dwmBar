@@ -1,0 +1,6 @@
+
+** TODO Make a #define for refresh value!
+*** TODO Allow it to work with other types
+*** TODO Add cpu freq + temps 
+*** TODO SIG interrupts + a log out display eg DWM
+*** TODO make a makefile clean + build links -lxcb etc 

@@ -140,7 +140,7 @@ int main(){
   xcbWrapper x;
   ThreadSafeQueue<Block> q;
 
-  Bar bar = {Date{}};
+  Bar bar = {Date{} };
   std::string prevInsert = "";
 
   auto dateTimeThread = [&]() {
@@ -155,7 +155,7 @@ int main(){
   std::thread t1(dateTimeThread);
 
   while(true){
-    Block blockUpdate = q.pop();
+    auto blockUpdate = q.pop();
 
     // find the curr object and then replace with blockUpdate using std::visit
     for (auto &b : bar) {
