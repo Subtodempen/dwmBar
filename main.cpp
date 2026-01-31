@@ -152,6 +152,19 @@ namespace getterFuns{
 };
 
 
+std::string formatBar(const std::vector<Block>& bar){
+    std::string barString = "";
+    
+    for(auto block : bar){
+      barString += "|" + 
+	std::visit([](auto&& arg) -> std::string {
+	  return arg.stat; 
+	}, block);
+    }
+    
+    return barString;
+}
+
 template <class bType>
 auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q) {
   return
@@ -182,24 +195,17 @@ int main(){
 
     // Checks for objects of the same type in the bar and updates them
     for (auto& b : bar) {
-      using blockType = std::decay_t<decltype(blockUpdate)>; 
-      using currType = std::decay_t<decltype(b)>;
-
-      if constexpr (std::is_same_v<currType, blockType>)
-	b = blockUpdate;
-
-      /*
       std::visit(
  [&](auto &&arg, auto &&localBU) {
             using currType = std::decay_t<decltype(arg)>;
 	    using updateType = std::decay_t<decltype(localBU)>;
 
 	    if constexpr (std::is_same_v<currType, updateType>)
-               barString += "|" + localBU.stat;
+               b = blockUpdate;
          }, b, blockUpdate);
-      */
     }
-
+    
+    barString = formatBar(bar);
     x.writeToBar(barString);
   }
 }

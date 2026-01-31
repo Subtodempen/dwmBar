@@ -1,8 +1,8 @@
 
 ** TODO Make a #define for refresh value!
 *** TODO Move xcb logic to serperate file
-*** TODO Allow it to work with other types
-*** TODO Add cpu freq
-*** TODO add temps
+*** DONE Allow it to work with other types:cANT DISPLAY TWO TYPES NO WAY OF KNOWING COUD USE GENERIC DUCKL TYPING 
+*** DONE Add cpu freq
+*** add temps
 *** TODO SIG interrupts + a log out display eg DWM*** T
 *** DONE make a makefile clean + build links -lxcb etc 
