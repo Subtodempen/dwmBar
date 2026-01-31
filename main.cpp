@@ -13,6 +13,9 @@
 #include <thread>
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
+
 
 #include "config.h"
 
@@ -115,6 +118,19 @@ T ThreadSafeQueue<T>::pop(){
 }
 
 
+// anymous namespace for localilty
+namespace {
+std::string getCpuInfo() {
+  std::ifstream procCpu("/proc/cpuinfo");
+  std::stringstream buffer;
+
+  buffer << procCpu.rdbuf();
+  procCpu.close();
+  return buffer.str();
+} 
+}
+
+
 namespace getterFuns{
   std::string dateTime(){
 	time_t timestamp;
@@ -122,58 +138,68 @@ namespace getterFuns{
 	
 	return std::string(ctime(&timestamp));
   }
+  
+  std::string cpuFreq() {
+    // read in /proc/cpuinfo
+    auto cpu = getCpuInfo();
+
+    // output the find cpu MHz 
+    auto location = cpu.find("cpu MHz");
+    std::string line = cpu.substr(location, cpu.find("\n"));
+    
+    return line;
+  }
 };
 
-inline std::string formatBar(const std::vector<Block>& bar){
-   std::string barString = "";
 
-   for(const auto block : bar){
-     barString += std::get<0>(block).stat + "|"; 
-   }
-
-   return barString;
+template <class bType>
+auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q) {
+  return
+    std::thread([func, &q]() {
+      while (true) {
+	auto block = bType{ func() };
+	q.push(block);
+          
+	// sleep for 5 seconds
+	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+      }
+    });
 }
-
 
 int main(){
   // open a X Display & Window
   xcbWrapper x;
   ThreadSafeQueue<Block> q;
 
-  Bar bar = {Date{} };
-  std::string prevInsert = "";
+  Bar bar = {Date{}, CpuFreq{} };
+  std::string barString = "";
 
-  auto dateTimeThread = [&]() {
-    while (true) {
-      auto dateBlock = Date{getterFuns::dateTime() };
-      q.push(dateBlock);
-          
-      // sleep for 5 seconds
-      std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-    }
-  };
-  std::thread t1(dateTimeThread);
-
+  auto t1 = createThread<Date>(getterFuns::dateTime, q);
+  auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q);
+  
   while(true){
     auto blockUpdate = q.pop();
 
-    // find the curr object and then replace with blockUpdate using std::visit
-    for (auto &b : bar) {
-      std::visit([&](auto &&arg) {
-        using currType = std::decay_t<decltype(arg)>;
-        using updateType = std::decay_t<decltype(blockUpdate)>;
+    // Checks for objects of the same type in the bar and updates them
+    for (auto& b : bar) {
+      using blockType = std::decay_t<decltype(blockUpdate)>; 
+      using currType = std::decay_t<decltype(b)>;
 
-        std::cout << typeid(Block).name() << std::endl;
-	std::cout << typeid(updateType).name() << std::endl;
-	
-        if constexpr (std::is_same_v<Block, updateType>)
-          b = blockUpdate;
-      }, b);
+      if constexpr (std::is_same_v<currType, blockType>)
+	b = blockUpdate;
+
+      /*
+      std::visit(
+ [&](auto &&arg, auto &&localBU) {
+            using currType = std::decay_t<decltype(arg)>;
+	    using updateType = std::decay_t<decltype(localBU)>;
+
+	    if constexpr (std::is_same_v<currType, updateType>)
+               barString += "|" + localBU.stat;
+         }, b, blockUpdate);
+      */
     }
 
-    auto barString = formatBar(bar);
     x.writeToBar(barString);
   }
-
-  t1.join();
 }
