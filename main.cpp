@@ -86,6 +86,15 @@ namespace {
            std::istreambuf_iterator<char>());
   }
 
+  std::string parseProcFS(const std::string &proc,
+                          const std::string &lineStart,
+                          const std::string &delim
+			  ) {
+    auto location = proc.find(lineStart);
+    size_t end = proc.find(delim, location);
+
+    return proc.substr(location, end - location);
+}
   /*
   std::string readFile(const std::string &fName) {
     size_t length;
@@ -108,21 +117,35 @@ namespace getterFuns{
   
   std::string cpuFreq() {
     // read in /proc/cpuinfo
-    auto cpu = readVirtualFile("/proc/cpuinfo");
-
-    // output the find cpu MHz 
-    auto location = cpu.find("cpu MHz");
-    size_t end = cpu.find("\n", location);
-    
-    std::string line = cpu.substr(location, end - location);
-    
-    return line;
+    auto cpu = readVirtualFile("/proc/cpuinfo");    
+    return parseProcFS(cpu, "cpu MHz", "\n");
   }
 
   std::string battery() {
     auto batteryPower =
       readVirtualFile("/sys/class/power_supply/BAT0/capacity");
     return batteryPower;
+  }
+
+  std::string memory() {
+    auto memInfo = readVirtualFile("/proc/meminfo");
+
+    const std::string memAID = "MemAvailable:";
+    const std::string memTID = "MemTotal:";
+    
+    std::string memAvailable = parseProcFS(memInfo, memAID, "kB");
+    std::string memTotal = parseProcFS(memInfo, memTID, "kB");
+
+    memAvailable = memAvailable.substr(memAID.length());
+    memTotal = memTotal.substr(memTID.length());
+
+    auto totalKB = stol(memTotal);
+    auto availKB = stoi(memAvailable);
+
+    auto usedMB  = (totalKB - availKB) / 1024;
+    auto totalMB = totalKB / 1024;
+    
+    return std::to_string(usedMB) + "/" + std::to_string(totalMB);
   }
 };
 
@@ -161,12 +184,14 @@ int main(){
   xcbWrapper x;
   ThreadSafeQueue<Block> q;
 
-  Bar bar = {Battery{}, CpuFreq{}, Date{}};
+  Bar bar = {Memory{}, CpuFreq{}, Date{}};
   std::string barString = "";
  
   auto t1 = createThread<Date>(getterFuns::dateTime, q, REFRESHRATE);
-  auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q, REFRESHRATE);
-  auto t3 = createThread<Battery>(getterFuns::battery, q, 30000);
+  auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q, 250);
+  auto t3 = createThread<Memory>(getterFuns::memory, q, 500);
+
+  //auto t3 = createThread<Battery>(getterFuns::battery, q, 30000);
 
   stop = false;
   
