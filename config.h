@@ -2,6 +2,9 @@
 #include <vector>
 #include <variant>
 
+#define REFRESHRATE 1000
+
+
 template <class Tag> struct StrongString {
   std::string stat;
 };

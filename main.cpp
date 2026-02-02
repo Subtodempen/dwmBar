@@ -6,65 +6,28 @@
 #include <condition_variable>
 #include <thread>
 
-#include <xcb/xcb.h>
 #include <ctime>
+#include <sys/mman.h>
+
+#include <cerrno>
+#include <cstring>
+
+#include <fstream>
+#include <streambuf>
+
 
 #include <chrono>
 #include <thread>
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-
+#include "xcb.h"
 #include "config.h"
 
-class xcbWrapper{
-public:
-  xcbWrapper(); 
-  void writeToBar(const std::string&);
 
-private:
-  void startConn();
-  void findRootWin();
-
-  void deconstructWindow();
-  
-  xcb_connection_t *t;
-  xcb_window_t *w;
-};
-
-xcbWrapper::xcbWrapper(){
-  startConn();
-  findRootWin();
-}
-
-void xcbWrapper::startConn(){
-  int discard;
-  t = xcb_connect(NULL, &discard);
-}
-
-void xcbWrapper::findRootWin(){    
-  auto *iter = xcb_setup_roots_iterator(xcb_get_setup(t)).data;
-
-  if(!iter)
-    throw std::runtime_error("Can not get root Window");
-  
-  w = &iter->root;
-}
-
-void xcbWrapper::writeToBar(const std::string& stat){
-  xcb_change_property(t,
-		       XCB_PROP_MODE_REPLACE,
-		       *w,
-		       XCB_ATOM_WM_NAME,
-		       XCB_ATOM_STRING,
-		       8,
-		       stat.length(),
-		       stat.c_str());
-
-  xcb_flush(t);
-}
 
 /*
 class Observer{
@@ -120,14 +83,50 @@ T ThreadSafeQueue<T>::pop(){
 
 // anymous namespace for localilty
 namespace {
-std::string getCpuInfo() {
-  std::ifstream procCpu("/proc/cpuinfo");
-  std::stringstream buffer;
+  auto mapFile(const std::string &fName, size_t &length) noexcept  {
+    // open file
+    auto fd = open(fName.c_str(), O_RDONLY);
+    if (fd == -1)
+      std::cout << ("Can not open file");
 
-  buffer << procCpu.rdbuf();
-  procCpu.close();
-  return buffer.str();
-} 
+    // get size
+    struct stat sb;
+    if (fstat(fd, &sb) == -1)
+      std::cout << ("Can not get file size");
+    
+    length = sb.st_size;
+
+    // call Mmap
+    char *addr = static_cast<char *>(
+        mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0));
+    if (addr == MAP_FAILED)
+      std::cout << ("MMAP failed");
+     
+    close(fd);
+    return addr;
+  }
+
+  auto unmapFile(char* addr, const size_t length) noexcept {
+    if (munmap(addr, length) == -1) {
+    }
+  }
+
+  std::string readVirtualFile(const std::string &fName) {
+    std::ifstream file(fName);
+    return std::string(std::istreambuf_iterator<char>(file),
+           std::istreambuf_iterator<char>());
+  }
+
+  
+  std::string readFile(const std::string &fName) {
+    size_t length;
+    auto data = mapFile(fName, length);
+
+    std::string file(data, length);
+
+    unmapFile(data, length);
+    return file;
+  }
 }
 
 
@@ -141,7 +140,7 @@ namespace getterFuns{
   
   std::string cpuFreq() {
     // read in /proc/cpuinfo
-    auto cpu = getCpuInfo();
+    auto cpu = readVirtualFile("/proc/cpuinfo");
 
     // output the find cpu MHz 
     auto location = cpu.find("cpu MHz");
@@ -172,9 +171,8 @@ auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q) 
       while (true) {
 	auto block = bType{ func() };
 	q.push(block);
-          
-	// sleep for 5 seconds
-	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+      
+	std::this_thread::sleep_for(std::chrono::milliseconds(REFRESHRATE));
       }
     });
 }
@@ -184,9 +182,9 @@ int main(){
   xcbWrapper x;
   ThreadSafeQueue<Block> q;
 
-  Bar bar = {Date{}, CpuFreq{} };
+  Bar bar = {CpuFreq{}, Date{}};
   std::string barString = "";
-
+ 
   auto t1 = createThread<Date>(getterFuns::dateTime, q);
   auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q);
   
