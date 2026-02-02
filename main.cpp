@@ -148,6 +148,12 @@ namespace getterFuns{
     
     return line;
   }
+
+  std::string battery() {
+    auto batteryPower =
+      readVirtualFile("/sys/class/power_supply/BAT0/capacity");
+    return batteryPower;
+  }
 };
 
 
@@ -165,14 +171,14 @@ std::string formatBar(const std::vector<Block>& bar){
 }
 
 template <class bType>
-auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q) {
+auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q, const uint sleepTime) {
   return
-    std::thread([func, &q]() {
+    std::thread([func, sleepTime, &q]() {
       while (true) {
 	auto block = bType{ func() };
 	q.push(block);
       
-	std::this_thread::sleep_for(std::chrono::milliseconds(REFRESHRATE));
+	std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
       }
     });
 }
@@ -182,11 +188,12 @@ int main(){
   xcbWrapper x;
   ThreadSafeQueue<Block> q;
 
-  Bar bar = {CpuFreq{}, Date{}};
+  Bar bar = {Battery{}, CpuFreq{}, Date{}};
   std::string barString = "";
  
-  auto t1 = createThread<Date>(getterFuns::dateTime, q);
-  auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q);
+  auto t1 = createThread<Date>(getterFuns::dateTime, q, REFRESHRATE);
+  auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q, REFRESHRATE);
+  auto t3 = createThread<Battery>(getterFuns::battery, q, 30000);
   
   while(true){
     auto blockUpdate = q.pop();

@@ -11,6 +11,7 @@ template <class Tag> struct StrongString {
 
 using Date = StrongString<class date>;
 using CpuFreq = StrongString<class cpufreq>;
+using Battery = StrongString<class battery>;
 
-using Block = std::variant<Date, CpuFreq>;
+using Block = std::variant<Date, CpuFreq, Battery>;
 using Bar = std::vector<Block>;
