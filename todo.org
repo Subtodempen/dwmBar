@@ -4,7 +4,9 @@
 *** DONE Allow it to work with other types:cANT DISPLAY TWO TYPES NO WAY OF KNOWING COUD USE GENERIC DUCKL TYPING 
 *** DONE Add cpu freq
 *** TODO add temperature
-*** TODO update File reading 
-*** TODO SIG interrupts A
+*** TODO Be able to gracefully exit even when asleep 
+*** DONE ADD BATTERY
+*** DONE update File reading 
+*** DONE SIG interrupts A
 *** TODO log out display eg DWM*** T
 *** DONE make a makefile clean + build links -lxcb etc 

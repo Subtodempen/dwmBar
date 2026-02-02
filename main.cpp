@@ -15,6 +15,7 @@
 #include <fstream>
 #include <streambuf>
 
+#include <signal.h>
 
 #include <chrono>
 #include <thread>
@@ -173,8 +174,8 @@ std::string formatBar(const std::vector<Block>& bar){
 template <class bType>
 auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q, const uint sleepTime) {
   return
-    std::thread([func, sleepTime, &q]() {
-      while (true) {
+    std::jthread([func, sleepTime, &q](std::stop_token stoken) {
+      while (!stoken.stop_requested()) {
 	auto block = bType{ func() };
 	q.push(block);
       
@@ -182,6 +183,9 @@ auto createThread(std::function<std::string()> func, ThreadSafeQueue<Block>& q, 
       }
     });
 }
+
+
+volatile sig_atomic_t stop;
 
 int main(){
   // open a X Display & Window
@@ -194,8 +198,14 @@ int main(){
   auto t1 = createThread<Date>(getterFuns::dateTime, q, REFRESHRATE);
   auto t2 = createThread<CpuFreq>(getterFuns::cpuFreq, q, REFRESHRATE);
   auto t3 = createThread<Battery>(getterFuns::battery, q, 30000);
+
+  stop = false;
   
-  while(true){
+  auto signalHandle = [](int){ stop = true; };
+  signal(SIGINT, signalHandle);
+  signal(SIGTERM, signalHandle);
+  
+  while(!stop){
     auto blockUpdate = q.pop();
 
     // Checks for objects of the same type in the bar and updates them
@@ -213,4 +223,5 @@ int main(){
     barString = formatBar(bar);
     x.writeToBar(barString);
   }
+
 }

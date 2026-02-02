@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -lxcb -Wall -Wextra
+CFLAGS = -lxcb -Wall -Wextra -std=c++20
 DEBUGFLAGS = -g -O0
 
 all: dwmBar debug
