@@ -7,10 +7,6 @@
 #include <thread>
 
 #include <ctime>
-#include <sys/mman.h>
-
-#include <cerrno>
-#include <cstring>
 
 #include <fstream>
 #include <streambuf>
@@ -84,41 +80,13 @@ T ThreadSafeQueue<T>::pop(){
 
 // anymous namespace for localilty
 namespace {
-  auto mapFile(const std::string &fName, size_t &length) noexcept  {
-    // open file
-    auto fd = open(fName.c_str(), O_RDONLY);
-    if (fd == -1)
-      std::cout << ("Can not open file");
-
-    // get size
-    struct stat sb;
-    if (fstat(fd, &sb) == -1)
-      std::cout << ("Can not get file size");
-    
-    length = sb.st_size;
-
-    // call Mmap
-    char *addr = static_cast<char *>(
-        mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0));
-    if (addr == MAP_FAILED)
-      std::cout << ("MMAP failed");
-     
-    close(fd);
-    return addr;
-  }
-
-  auto unmapFile(char* addr, const size_t length) noexcept {
-    if (munmap(addr, length) == -1) {
-    }
-  }
-
   std::string readVirtualFile(const std::string &fName) {
     std::ifstream file(fName);
     return std::string(std::istreambuf_iterator<char>(file),
            std::istreambuf_iterator<char>());
   }
 
-  
+  /*
   std::string readFile(const std::string &fName) {
     size_t length;
     auto data = mapFile(fName, length);
@@ -128,15 +96,14 @@ namespace {
     unmapFile(data, length);
     return file;
   }
+  */
 }
 
 
 namespace getterFuns{
   std::string dateTime(){
-	time_t timestamp;
-	time(&timestamp);
-	
-	return std::string(ctime(&timestamp));
+	time_t timestamp = std::time(nullptr);
+   	return std::asctime(std::localtime(&timestamp));
   }
   
   std::string cpuFreq() {
@@ -145,7 +112,9 @@ namespace getterFuns{
 
     // output the find cpu MHz 
     auto location = cpu.find("cpu MHz");
-    std::string line = cpu.substr(location, cpu.find("\n"));
+    size_t end = cpu.find("\n", location);
+    
+    std::string line = cpu.substr(location, end - location);
     
     return line;
   }
